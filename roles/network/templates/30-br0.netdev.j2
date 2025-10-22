@@ -1,6 +1,9 @@
 [NetDev]
 Name={{ default_bridge_name }}
 Kind=bridge
+{% if bridge_inherit_mac | default(false) %}
+MACAddress={{ physical_interface_mac }}
+{% endif %}
 
 [Bridge]
 STP=no

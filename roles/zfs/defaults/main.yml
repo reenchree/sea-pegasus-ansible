@@ -1,6 +1,7 @@
 ---
 # ZFS configuration
 zfs_packages:
+  - linux-headers-amd64
   - zfsutils-linux
 
 # Pool configuration (from inventory)
@@ -12,5 +13,5 @@ zfs_packages:
 
 # ZFS properties
 zfs_pool_properties:
-  compression: lz4
-  atime: off
+  compression: "lz4"
+  atime: "off"

@@ -23,5 +23,9 @@ vm_hosts:
     vlan_bridge_name: br-vlan50
     default_bridge_name: br0
 
+    # Bridge MAC inheritance (keeps same IP from DHCP)
+    bridge_inherit_mac: true
+    physical_interface_mac: a8:29:48:24:aa:5d
+
     # Libvirt configuration
     libvirt_storage_pool_path: /vmpool

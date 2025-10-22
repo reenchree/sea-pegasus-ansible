@@ -5,6 +5,16 @@
     state: present
     update_cache: yes
 
+- name: Check DKMS status for ZFS
+  ansible.builtin.command: dkms status zfs
+  register: dkms_status_check
+  changed_when: false
+  failed_when: false
+
+- name: Build ZFS kernel module with DKMS
+  ansible.builtin.command: dkms autoinstall
+  when: dkms_status_check.stdout is not search('installed')
+
 - name: Load ZFS kernel module
   community.general.modprobe:
     name: zfs
