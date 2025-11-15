@@ -4,3 +4,8 @@
 collections:
   - name: community.general
     version: ">=7.0.0"
+
+roles:
+  - name: geerlingguy.nut_client
+    src: https://github.com/geerlingguy/ansible-role-nut_client.git
+    version: master
