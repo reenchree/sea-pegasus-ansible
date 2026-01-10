@@ -1,0 +1,18 @@
+version: 2
+ethernets:
+  id0:
+    match:
+      name: "en*"
+{% if vm_ip != "" %}
+    addresses:
+      - {{ vm_ip }}/24
+    routes:
+      - to: default
+        via: {{ vm_gateway }}
+    nameservers:
+      addresses:
+        - {{ vm_dns }}
+        - 1.1.1.1
+{% else %}
+    dhcp4: true
+{% endif %}

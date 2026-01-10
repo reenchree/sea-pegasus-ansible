@@ -1,0 +1,17 @@
+# Wings API reverse proxy configuration
+# Proxies Wings API through Apache to avoid mixed content errors
+# This allows HTTPS Panel to communicate with HTTP Wings daemon
+
+<IfModule mod_proxy.c>
+  ProxyPreserveHost On
+  ProxyTimeout 600
+
+  # Proxy Wings API traffic (used by Panel for node communication)
+  ProxyPass /api/remote http://127.0.0.1:8080/api/remote
+  ProxyPassReverse /api/remote http://127.0.0.1:8080/api/remote
+
+  # Forward protocol headers so Wings knows it's behind a proxy
+  RequestHeader set X-Forwarded-Proto "https"
+  RequestHeader set X-Forwarded-Port "443"
+  RequestHeader set X-Real-IP "%{REMOTE_ADDR}s"
+</IfModule>

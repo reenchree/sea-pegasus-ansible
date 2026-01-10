@@ -1,0 +1,33 @@
+---
+# Default variables for VM creation
+
+# VM name (override in inventory or playbook)
+vm_name: "new-vm"
+
+# VM resources
+vm_vcpus: 2
+vm_ram_mb: 2048
+vm_disk_gb: 50
+
+# Network configuration
+vm_bridge: "br0"
+vm_ip: ""  # Leave empty for DHCP, or set static IP
+vm_gateway: "192.168.0.1"
+vm_netmask: "255.255.255.0"
+vm_dns: "8.8.8.8"
+
+# OS configuration
+vm_os_variant: "ubuntu24.04"
+vm_image_url: "https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img"
+
+# Storage configuration
+vm_storage_pool: "default"
+vm_disk_path: "/var/lib/libvirt/images"
+
+# Cloud-init configuration
+vm_user: "ubuntu"
+vm_ssh_authorized_keys: []
+
+# VM state
+vm_autostart: true
+vm_state: "running"

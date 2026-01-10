@@ -1,0 +1,47 @@
+#cloud-config
+hostname: {{ vm_name }}
+manage_etc_hosts: true
+
+# Create both default ubuntu user and custom user
+users:
+  - default  # Creates ubuntu user with standard config
+  - name: {{ vm_user }}
+    gecos: {{ vm_user | capitalize }} User
+    groups: [adm, audio, cdrom, dialout, dip, floppy, lxd, netdev, plugdev, sudo, video]
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+    lock_passwd: false
+    passwd: "$6$rounds=4096$saltsaltsal$YQy.5tDPHMYJeLF9rKZVU5y1K9YmLF/6Ovkfz0u9LYQkzJ6Xu4VVp8zXjPQ5mGJXk9z1PY2a3/4Z5wWqKZc0"
+{% if vm_ssh_authorized_keys | length > 0 %}
+    ssh_authorized_keys:
+{% for key in vm_ssh_authorized_keys %}
+      - {{ key }}
+{% endfor %}
+{% endif %}
+
+# Enable password authentication for initial setup
+ssh_pwauth: true
+
+# Install essential packages
+packages:
+  - qemu-guest-agent
+  - python3
+  - python3-pip
+  - curl
+  - wget
+  - vim
+  - net-tools
+
+# Enable qemu-guest-agent
+runcmd:
+  - systemctl enable qemu-guest-agent
+  - systemctl start qemu-guest-agent
+
+# Update package database
+package_update: true
+package_upgrade: false
+
+# Reboot if required
+power_state:
+  mode: reboot
+  condition: test -f /var/run/reboot-required

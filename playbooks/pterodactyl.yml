@@ -1,0 +1,153 @@
+---
+# Playbook to create Pterodactyl VM and install Panel + Wings
+#
+# This playbook:
+# 1. Creates a VM on the pegasus host
+# 2. Installs MariaDB database
+# 3. Installs Pterodactyl Panel (web interface)
+# 4. Installs Pterodactyl Wings (game server daemon)
+#
+# Usage:
+#   ansible-playbook -i inventory.yml playbooks/pterodactyl.yml
+
+- name: Create Pterodactyl VM
+  hosts: pegasus
+  become: true
+  gather_facts: true
+
+  tasks:
+    - name: Get VM configuration from pterodactyl host
+      ansible.builtin.set_fact:
+        vm_config: "{{ hostvars['pterodactyl'] }}"
+
+    - name: Create Pterodactyl VM
+      ansible.builtin.include_role:
+        name: create-vm
+      vars:
+        vm_name: "{{ vm_config.vm_name }}"
+        vm_vcpus: "{{ vm_config.vm_vcpus }}"
+        vm_ram_mb: "{{ vm_config.vm_ram_mb }}"
+        vm_disk_gb: "{{ vm_config.vm_disk_gb }}"
+        vm_bridge: "{{ vm_config.vm_bridge }}"
+        vm_ip: "{{ vm_config.vm_ip }}"
+        vm_gateway: "{{ vm_config.vm_gateway }}"
+        vm_netmask: "{{ vm_config.vm_netmask }}"
+        vm_dns: "{{ vm_config.vm_dns }}"
+        vm_disk_path: "{{ vm_config.vm_disk_path }}"
+        vm_os_variant: "{{ vm_config.vm_os_variant }}"
+        vm_user: "{{ vm_config.vm_user }}"
+        vm_ssh_authorized_keys: "{{ vm_config.vm_ssh_authorized_keys }}"
+
+    - name: Wait for VM to be fully ready
+      ansible.builtin.pause:
+        seconds: 30
+        prompt: "Waiting for VM to complete cloud-init setup..."
+
+- name: Install MariaDB on Pterodactyl VM
+  hosts: pterodactyl
+  become: true
+  gather_facts: true
+
+  tasks:
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Install MariaDB server
+      ansible.builtin.apt:
+        name:
+          - mariadb-server
+          - mariadb-client
+          - python3-pymysql
+        state: present
+
+    - name: Start and enable MariaDB
+      ansible.builtin.systemd:
+        name: mariadb
+        state: started
+        enabled: true
+
+    - name: Set MariaDB root password
+      community.mysql.mysql_user:
+        name: root
+        password: "{{ mysql_root_password }}"
+        login_unix_socket: /var/run/mysqld/mysqld.sock
+        state: present
+      ignore_errors: true
+      register: mysql_root_set
+
+    - name: Ensure MariaDB root password is set (with password auth)
+      community.mysql.mysql_user:
+        name: root
+        password: "{{ mysql_root_password }}"
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        state: present
+      when: mysql_root_set is failed
+
+    - name: Create Pterodactyl database
+      community.mysql.mysql_db:
+        name: "{{ pterodactyl_panel_db_name }}"
+        state: present
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+
+    - name: Create Pterodactyl database user
+      community.mysql.mysql_user:
+        name: "{{ pterodactyl_panel_db_user }}"
+        password: "{{ pterodactyl_panel_db_password }}"
+        priv: "{{ pterodactyl_panel_db_name }}.*:ALL"
+        host: localhost
+        state: present
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+
+- name: Install Pterodactyl Panel
+  hosts: pterodactyl
+  become: true
+  gather_facts: true
+
+  roles:
+    - role: maxhoesel.pterodactyl.pterodactyl_panel
+      vars:
+        pterodactyl_panel_db:
+          host: "{{ pterodactyl_panel_db_host }}"
+          name: "{{ pterodactyl_panel_db_name }}"
+          user: "{{ pterodactyl_panel_db_user }}"
+          password: "{{ pterodactyl_panel_db_password }}"
+
+- name: Install Pterodactyl Wings
+  hosts: pterodactyl
+  become: true
+  gather_facts: true
+
+  roles:
+    - role: maxhoesel.pterodactyl.pterodactyl_wings
+
+- name: Configure Apache reverse proxy for Wings
+  hosts: pterodactyl
+  become: true
+  gather_facts: true
+
+  roles:
+    - role: pterodactyl-apache-proxy
+
+  post_tasks:
+    - name: Display setup information
+      ansible.builtin.debug:
+        msg:
+          - "Pterodactyl installation complete!"
+          - "Panel URL: http://{{ ansible_host }}"
+          - "Next steps:"
+          - "1. Access the Panel web interface"
+          - "2. Complete the web-based setup wizard"
+          - "3. Configure Wings in the Panel admin interface"
+          - "4. Set up SSL/reverse proxy (recommended for production)"
+          - ""
+          - "Database credentials:"
+          - "  Database: {{ pterodactyl_panel_db_name }}"
+          - "  User: {{ pterodactyl_panel_db_user }}"
+          - "  Password: {{ pterodactyl_panel_db_password }}"
+          - ""
+          - "IMPORTANT: Change the default passwords in inventory.yml!"

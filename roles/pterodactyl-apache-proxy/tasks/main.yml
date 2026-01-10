@@ -1,0 +1,58 @@
+---
+# Tasks for configuring Apache as a reverse proxy for Pterodactyl Wings
+# This allows the HTTPS Panel to communicate with HTTP Wings without mixed content errors
+
+- name: Enable Apache proxy module
+  community.general.apache2_module:
+    name: proxy
+    state: present
+  notify: Restart apache2
+
+- name: Enable Apache proxy_http module
+  community.general.apache2_module:
+    name: proxy_http
+    state: present
+  notify: Restart apache2
+
+- name: Enable Apache headers module
+  community.general.apache2_module:
+    name: headers
+    state: present
+  notify: Restart apache2
+
+- name: Configure Wings proxy in Apache
+  ansible.builtin.template:
+    src: wings-proxy.conf.j2
+    dest: /etc/apache2/conf-available/wings-proxy.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart apache2
+
+- name: Enable Wings proxy configuration
+  ansible.builtin.file:
+    src: /etc/apache2/conf-available/wings-proxy.conf
+    dest: /etc/apache2/conf-enabled/wings-proxy.conf
+    state: link
+  notify: Restart apache2
+
+- name: Read Wings config to check for trusted_proxies section
+  ansible.builtin.slurp:
+    src: /etc/pterodactyl/config.yml
+  register: wings_config_content
+
+- name: Convert empty trusted_proxies array to proper YAML list format
+  ansible.builtin.replace:
+    path: /etc/pterodactyl/config.yml
+    regexp: '(\s*trusted_proxies:)\s*\[\]'
+    replace: '\1'
+  when: "'trusted_proxies: []' in (wings_config_content['content'] | b64decode)"
+
+- name: Add localhost to Wings trusted proxies
+  ansible.builtin.lineinfile:
+    path: /etc/pterodactyl/config.yml
+    insertafter: '^\s*trusted_proxies:'
+    line: '    - 127.0.0.1'
+    state: present
+  when: "'127.0.0.1' not in (wings_config_content['content'] | b64decode)"
+  notify: Restart wings

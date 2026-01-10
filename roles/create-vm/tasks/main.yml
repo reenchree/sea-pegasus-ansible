@@ -1,0 +1,91 @@
+---
+- name: Check if VM already exists
+  community.libvirt.virt:
+    command: list_vms
+  register: existing_vms
+
+- name: Set VM exists fact
+  ansible.builtin.set_fact:
+    vm_exists: "{{ vm_name in existing_vms.list_vms }}"
+
+- name: Create VM disk directory
+  ansible.builtin.file:
+    path: "{{ vm_disk_path }}"
+    state: directory
+    mode: '0755'
+  when: not vm_exists
+
+- name: Download Ubuntu cloud image
+  ansible.builtin.get_url:
+    url: "{{ vm_image_url }}"
+    dest: "{{ vm_disk_path }}/{{ vm_os_variant }}-base.img"
+    mode: '0644'
+  when: not vm_exists
+  register: image_download
+
+- name: Create VM disk from cloud image
+  ansible.builtin.command:
+    cmd: >
+      qemu-img create -f qcow2
+      -F qcow2
+      -b {{ vm_disk_path }}/{{ vm_os_variant }}-base.img
+      {{ vm_disk_path }}/{{ vm_name }}.qcow2
+      {{ vm_disk_gb }}G
+    creates: "{{ vm_disk_path }}/{{ vm_name }}.qcow2"
+  when: not vm_exists
+
+- name: Create cloud-init meta-data
+  ansible.builtin.copy:
+    content: |
+      instance-id: {{ vm_name }}
+      local-hostname: {{ vm_name }}
+    dest: "{{ vm_disk_path }}/{{ vm_name }}-meta-data"
+    mode: '0644'
+  when: not vm_exists
+
+- name: Create cloud-init user-data
+  ansible.builtin.template:
+    src: cloud-init-user-data.j2
+    dest: "{{ vm_disk_path }}/{{ vm_name }}-user-data"
+    mode: '0644'
+  when: not vm_exists
+
+- name: Create cloud-init network-config
+  ansible.builtin.template:
+    src: cloud-init-network-config.j2
+    dest: "{{ vm_disk_path }}/{{ vm_name }}-network-config"
+    mode: '0644'
+  when: not vm_exists
+
+- name: Create VM with virt-install and cloud-init
+  ansible.builtin.command:
+    cmd: >
+      virt-install
+      --name {{ vm_name }}
+      --virt-type kvm
+      --memory {{ vm_ram_mb }}
+      --vcpus {{ vm_vcpus }}
+      --boot hd,menu=on
+      --controller type=scsi,model=virtio-scsi
+      --disk path={{ vm_disk_path }}/{{ vm_name }}.qcow2,device=disk,bus=scsi
+      --os-variant {{ vm_os_variant }}
+      --network bridge={{ vm_bridge }},model=virtio
+      --cloud-init user-data={{ vm_disk_path }}/{{ vm_name }}-user-data,meta-data={{ vm_disk_path }}/{{ vm_name }}-meta-data,network-config={{ vm_disk_path }}/{{ vm_name }}-network-config
+      --graphics none
+      --console pty,target_type=serial
+      --noautoconsole
+      {% if vm_autostart %}--autostart{% endif %}
+  when: not vm_exists
+  register: vm_create
+
+- name: Wait for VM to be accessible
+  ansible.builtin.wait_for:
+    host: "{{ vm_ip }}"
+    port: 22
+    delay: 10
+    timeout: 300
+  when: not vm_exists and vm_ip != ""
+
+- name: Display VM creation status
+  ansible.builtin.debug:
+    msg: "{{ 'VM already exists' if vm_exists else 'VM created successfully' }}"
