@@ -7,6 +7,15 @@
     group: root
     mode: '0755'
 
+- name: Configure SHUTDOWNCMD in upsmon.conf
+  ansible.builtin.lineinfile:
+    path: /etc/nut/upsmon.conf
+    regexp: '^SHUTDOWNCMD\s+'
+    line: 'SHUTDOWNCMD "{{ nut_client_shutdowncmd }}"'
+    state: present
+    create: false
+  notify: restart nut-client
+
 - name: Verify virsh command is available
   ansible.builtin.command: which virsh
   register: virsh_check

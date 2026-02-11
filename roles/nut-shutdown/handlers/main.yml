@@ -1,0 +1,5 @@
+---
+- name: restart nut-client
+  ansible.builtin.systemd:
+    name: nut-client
+    state: restarted
