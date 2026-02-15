@@ -10,8 +10,14 @@
     - role: prereq
       tags: ['prereq', 'packages']
 
+    - role: node_exporter
+      tags: ['node_exporter', 'monitoring']
+
     - role: zfs
       tags: ['zfs', 'storage']
+
+    - role: zfs_exporter
+      tags: ['zfs_exporter', 'monitoring']
 
     # Note: Network should be tested separately first!
     # Use playbooks/network-only.yml for initial network setup
@@ -36,5 +42,7 @@
           - "Libvirt Storage: {{ libvirt_storage_pool_path }}"
           - "VM Network Bridge (VLAN 50): {{ vlan_bridge_name }}"
           - "Host Network Bridge (untagged): {{ default_bridge_name }}"
+          - "Node Exporter: http://{{ ansible_host }}:9100"
+          - "ZFS Exporter: http://{{ ansible_host }}:9134"
           - "============================================"
       tags: ['always']
