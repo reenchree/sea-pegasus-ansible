@@ -1,0 +1,21 @@
+---
+- name: Apt upgrade VM host
+  hosts: vm_hosts
+  tasks:
+    - name: Update apt cache and dist-upgrade
+      ansible.builtin.apt:
+        upgrade: dist
+        update_cache: true
+        cache_valid_time: 3600
+        autoremove: true
+
+    - name: Check if reboot is required
+      ansible.builtin.stat:
+        path: /var/run/reboot-required
+      register: reboot_flag
+      changed_when: reboot_flag.stat.exists
+
+    - name: Notify if reboot is required
+      ansible.builtin.debug:
+        msg: "Reboot required to complete upgrade"
+      when: reboot_flag.stat.exists
