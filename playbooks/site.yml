@@ -10,13 +10,13 @@
     - role: prereq
       tags: ['prereq', 'packages']
 
-    - role: node_exporter
+    - role: reenchree.common.node_exporter
       tags: ['node_exporter', 'monitoring']
 
     - role: zfs
       tags: ['zfs', 'storage']
 
-    - role: zfs_exporter
+    - role: reenchree.common.zfs_exporter
       tags: ['zfs_exporter', 'monitoring']
 
     # Note: Network should be tested separately first!

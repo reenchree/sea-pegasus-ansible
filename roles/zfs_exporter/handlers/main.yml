@@ -1,6 +1,0 @@
----
-- name: restart zfs_exporter
-  ansible.builtin.systemd:
-    name: zfs_exporter
-    state: restarted
-    daemon_reload: true

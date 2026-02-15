@@ -4,4 +4,4 @@
   become: true
   gather_facts: true
   roles:
-    - role: zfs_exporter
+    - role: reenchree.common.zfs_exporter
