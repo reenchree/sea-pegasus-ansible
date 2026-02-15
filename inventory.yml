@@ -1,0 +1,123 @@
+---
+# IMPORTANT: Do NOT commit secrets to this file.
+# Secrets (nut_client_password, pterodactyl_panel_db_password,
+# pterodactyl_panel_app_key, pterodactyl_panel_hashids_salt,
+# mysql_root_password) are injected at runtime via Semaphore
+# environment variables (environment ID 4). See CLAUDE.md for details.
+
+vm_hosts:
+  hosts:
+    pegasus:
+      ansible_host: 192.168.0.253
+
+  vars:
+    ansible_port: 22
+    ansible_user: pi
+
+    # ZFS configuration
+    zfs_pool_name: vmpool
+    zfs_pool_type: raidz1
+    zfs_pool_devices:
+      - /dev/sda
+      - /dev/sdb
+      - /dev/sdc
+      - /dev/sdd
+
+    # Network configuration
+    # VLAN 50 for services (192.168.50.0/24)
+    # Trunk port on enp4s0 carries all VLANs
+    primary_interface: enp4s0
+    vlan_id: 50
+    vlan_bridge_name: br-vlan50
+    default_bridge_name: br0
+
+    # Bridge MAC inheritance (keeps same IP from DHCP)
+    bridge_inherit_mac: true
+    physical_interface_mac: a8:29:48:24:aa:5d
+
+    # Libvirt configuration
+    libvirt_storage_pool_path: /vmpool
+
+    # NUT Client configuration
+    # nut_client_password is injected via Semaphore environment variables
+    nut_client_ups: ups
+    nut_client_server: 192.168.0.251
+    nut_client_username: observer
+    nut_client_type: secondary
+    nut_client_state: started
+    nut_client_enabled: true
+    nut_client_shutdowncmd: "/usr/local/bin/vm-host-shutdown"
+    nut_client_finaldelay: 10  # Final delay before host shutdown
+    nut_vm_shutdown_timeout: 300  # Max time to wait for VMs (5 minutes)
+
+vms:
+  hosts:
+    pterodactyl:
+      ansible_host: 192.168.50.30
+
+      # VM creation parameters
+      vm_name: pterodactyl
+      vm_vcpus: 4
+      vm_ram_mb: 8192
+      vm_disk_gb: 250
+      vm_bridge: br-vlan50
+      vm_ip: 192.168.50.30
+      vm_gateway: 192.168.50.1
+      vm_netmask: 255.255.255.0
+      vm_dns: 192.168.50.1
+      vm_disk_path: /vmpool/disks
+      vm_os_variant: ubuntu24.04
+      vm_user: pi
+      vm_ssh_authorized_keys:
+        - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILJkxKcF9eDLYMvkgir1OqAbcCngGaGHj6f/nQEqY7V3 chris@Chriss-MacBook-Air.local"
+
+      # Pterodactyl Panel configuration
+      # Secrets (pterodactyl_panel_db_password, pterodactyl_panel_app_key,
+      # pterodactyl_panel_hashids_salt, mysql_root_password) are injected
+      # via Semaphore environment variables
+      pterodactyl_panel_version: latest
+      pterodactyl_panel_fqdn: "pterodactyl.reenchree.dev"
+      pterodactyl_panel_url: "https://pterodactyl.reenchree.dev"  # External URL via Traefik
+      pterodactyl_panel_ssl_mode: selfsign  # Self-signed cert for backend, Traefik handles public TLS
+      pterodactyl_panel_db_host: localhost
+      pterodactyl_panel_db_name: panel
+      pterodactyl_panel_db_user: pterodactyl
+
+      # Pterodactyl Wings configuration
+      pterodactyl_wings_version: latest
+      pterodactyl_wings_panel_url: "https://pterodactyl.reenchree.dev"
+      pterodactyl_wings_fqdn: "node-1.games.reenchree.dev"  # FQDN for Wings node (used in Panel node config)
+      pterodactyl_wings_config:
+        api:
+          port: 8888
+
+    node-2:
+      ansible_host: 192.168.50.31
+
+      # VM creation parameters
+      vm_name: node-2
+      vm_vcpus: 4
+      vm_ram_mb: 16384
+      vm_disk_gb: 250
+      vm_bridge: br-vlan50
+      vm_ip: 192.168.50.31
+      vm_gateway: 192.168.50.1
+      vm_netmask: 255.255.255.0
+      vm_dns: 192.168.50.1
+      vm_disk_path: /vmpool/disks
+      vm_os_variant: ubuntu24.04
+      vm_user: pi
+      vm_ssh_authorized_keys:
+        - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILJkxKcF9eDLYMvkgir1OqAbcCngGaGHj6f/nQEqY7V3 chris@Chriss-MacBook-Air.local"
+
+      # Pterodactyl Wings configuration (node only, no panel)
+      # Uses default port 8080 to leave 8888 free for game servers
+      pterodactyl_wings_version: latest
+      pterodactyl_wings_panel_url: "https://pterodactyl.reenchree.dev"
+      pterodactyl_wings_fqdn: "node-2.games.reenchree.dev"
+
+  vars:
+    ansible_port: 22
+    ansible_user: pi
+    ansible_python_interpreter: /usr/bin/python3
+    ansible_ssh_private_key_file: ~/.ssh/id_ansible
