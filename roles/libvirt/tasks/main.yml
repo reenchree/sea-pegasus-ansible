@@ -22,14 +22,14 @@
   register: pool_list
   changed_when: false
 
-- name: Remove existing default pool if it exists
-  ansible.builtin.command: virsh pool-destroy default
-  when: "'default' in pool_list.stdout_lines"
+- name: Destroy existing storage pool if it exists
+  ansible.builtin.command: "virsh pool-destroy {{ libvirt_storage_pool_name }}"
+  when: "libvirt_storage_pool_name in pool_list.stdout_lines"
   failed_when: false
 
-- name: Undefine existing default pool
-  ansible.builtin.command: virsh pool-undefine default
-  when: "'default' in pool_list.stdout_lines"
+- name: Undefine existing storage pool
+  ansible.builtin.command: "virsh pool-undefine {{ libvirt_storage_pool_name }}"
+  when: "libvirt_storage_pool_name in pool_list.stdout_lines"
   failed_when: false
 
 - name: Create storage pool directory on ZFS
@@ -46,18 +46,16 @@
     {{ libvirt_storage_pool_name }}
     dir
     --target {{ libvirt_storage_pool_path }}
-  when: "'default' not in pool_list.stdout_lines"
 
 - name: Build storage pool
-  ansible.builtin.command: virsh pool-build {{ libvirt_storage_pool_name }}
-  when: "'default' not in pool_list.stdout_lines"
+  ansible.builtin.command: "virsh pool-build {{ libvirt_storage_pool_name }}"
+  failed_when: false
 
 - name: Start storage pool
-  ansible.builtin.command: virsh pool-start {{ libvirt_storage_pool_name }}
-  when: "'default' not in pool_list.stdout_lines"
+  ansible.builtin.command: "virsh pool-start {{ libvirt_storage_pool_name }}"
 
 - name: Set storage pool to autostart
-  ansible.builtin.command: virsh pool-autostart {{ libvirt_storage_pool_name }}
+  ansible.builtin.command: "virsh pool-autostart {{ libvirt_storage_pool_name }}"
 
 - name: Get libvirt version
   ansible.builtin.command: virsh version
