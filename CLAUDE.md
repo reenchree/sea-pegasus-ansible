@@ -65,7 +65,11 @@ pegasus (192.168.0.253) - Debian 13 VM Host
 │   ├── br0 (untagged bridge, host mgmt, DHCP 192.168.0.x)
 │   └── br-vlan50 (VLAN 50 bridge, VMs, static 192.168.50.x)
 ├── NUT client → graceful VM shutdown on power failure
-└── Cockpit web UI (:9090)
+├── Cockpit web UI (:9090)
+└── Monitoring exporters (scraped by Prometheus in k8s)
+    ├── node_exporter (:9100)
+    ├── zfs_exporter (:9134)
+    └── smartctl_exporter (:9633)
 
 VMs (on VLAN 50, Ubuntu 24.04 cloud-init)
 ├── pterodactyl (192.168.50.30) - Panel + Wings + MariaDB
@@ -153,3 +157,4 @@ rm /tmp/semaphore-cookies.txt
 - `community.libvirt` — libvirt/virsh modules
 - `maxhoesel.pterodactyl` — Pterodactyl Panel and Wings installation
 - `geerlingguy.nut_client` — NUT UPS client (installed from GitHub master branch)
+- `reenchree.common` — shared collection with node_exporter, zfs_exporter, smartctl_exporter roles
