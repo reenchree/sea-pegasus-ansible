@@ -9,7 +9,7 @@ collections:
   - name: maxhoesel.pterodactyl
   - name: https://github.com/reenchree/reenchree-ansible-common.git
     type: git
-    version: main
+    version: 2a19d53c9fc6a345628a748e49329fac378583d5
 
 roles:
   - name: geerlingguy.nut_client

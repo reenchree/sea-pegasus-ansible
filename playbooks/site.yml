@@ -14,6 +14,9 @@
     - role: reenchree.common.node_exporter
       tags: ['node_exporter', 'monitoring']
 
+    - role: reenchree.common.smartctl_exporter
+      tags: ['smartctl_exporter', 'monitoring']
+
     - role: zfs
       tags: ['zfs', 'storage']
 
@@ -45,5 +48,6 @@
           - "Host Network Bridge (untagged): {{ default_bridge_name }}"
           - "Node Exporter: http://{{ ansible_host }}:9100"
           - "ZFS Exporter: http://{{ ansible_host }}:9134"
+          - "Smartctl Exporter: http://{{ ansible_host }}:9633"
           - "============================================"
       tags: ['always']
