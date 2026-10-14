@@ -1,0 +1,16 @@
+# Managed by sea-pegasus-ansible (roles/network).
+[Match]
+Name={{ vlan_bridge_name }}
+
+[Network]
+DHCP=yes
+ConfigureWithoutCarrier=yes
+IgnoreCarrierLoss=yes
+
+[DHCPv4]
+ClientIdentifier=mac
+UseDNS=yes
+UseDomains=yes
+
+[Link]
+RequiredForOnline=routable

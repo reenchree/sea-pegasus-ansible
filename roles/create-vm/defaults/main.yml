@@ -10,7 +10,7 @@ vm_ram_mb: 2048
 vm_disk_gb: 50
 
 # Network configuration
-vm_bridge: "br0"
+vm_bridge: "br-vlan50"
 vm_ip: ""  # Leave empty for DHCP, or set static IP
 vm_gateway: "192.168.0.1"
 vm_netmask: "255.255.255.0"

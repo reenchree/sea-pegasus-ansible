@@ -1,6 +1,17 @@
 ---
-# Network configuration (from inventory)
-# primary_interface: enp4s0
-# vlan_id: 50
-# vlan_bridge_name: br-vlan50
-# default_bridge_name: br0
+# Set in inventory:
+# primary_interface: enp5s0          # sole bridge port (access port, untagged)
+# vlan_bridge_name: br-vlan50        # host DHCP + VM attach point
+# bridge_mac: a8:a1:59:5f:b6:4a      # pinned so the DHCP lease survives port swaps
+network_dns_servers: [192.168.50.1]
+network_dns_search: [lan]
+network_wait_online_timeout: 60
+# Units from the old enp4s0 trunk layout (br0 + enp4s0.50); removed if present.
+network_stale_units:
+  - 10-physical.network
+  - 20-vlan.netdev
+  - 21-vlan.network
+  - 30-br0.netdev
+  - 31-br0.network
+  - 40-br-vlan50.netdev
+  - 41-br-vlan50.network

@@ -1,0 +1,5 @@
+# Managed by sea-pegasus-ansible (roles/network). Static: systemd-resolved not installed.
+search {{ network_dns_search | join(' ') }}
+{% for ns in network_dns_servers %}
+nameserver {{ ns }}
+{% endfor %}

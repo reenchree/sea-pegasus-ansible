@@ -1,14 +1,29 @@
 ---
-- name: Install systemd-networkd if not present
-  ansible.builtin.apt:
-    name: systemd
-    state: present
+# systemd-networkd is the sole owner of host interfaces: NetworkManager and
+# ifupdown are disabled so nothing else runs a DHCP client on the uplink.
+- name: Disable and mask NetworkManager
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: stopped
+    enabled: false
+    masked: true
+  loop:
+    - NetworkManager.service
+    - NetworkManager-wait-online.service
+  failed_when: false
 
 - name: Disable networking service (ifupdown)
   ansible.builtin.systemd:
     name: networking
-    enabled: no
-  notify: reboot system
+    enabled: false
+
+- name: Reduce /etc/network/interfaces to loopback only
+  ansible.builtin.template:
+    src: interfaces.j2
+    dest: /etc/network/interfaces
+    owner: root
+    group: root
+    mode: '0644'
 
 - name: Remove /etc/network/interfaces.d/* files
   ansible.builtin.file:
@@ -21,31 +36,57 @@
     state: directory
     mode: '0755'
 
+- name: Remove stale networkd units
+  ansible.builtin.file:
+    path: "/etc/systemd/network/{{ item }}"
+    state: absent
+  loop: "{{ network_stale_units }}"
+  notify: reload networkd
+
 - name: Deploy systemd-networkd configuration files
   ansible.builtin.template:
-    src: "{{ item }}"
-    dest: "/etc/systemd/network/{{ item | basename | regex_replace('.j2$', '') }}"
+    src: "{{ item.src }}"
+    dest: "/etc/systemd/network/{{ item.dest }}"
     owner: root
     group: root
     mode: '0644'
   loop:
-    - 10-physical.network.j2
-    - 20-vlan.netdev.j2
-    - 21-vlan.network.j2
-    - 30-br0.netdev.j2
-    - 31-br0.network.j2
-    - 40-br-vlan50.netdev.j2
-    - 41-br-vlan50.network.j2
-  notify: restart networkd
+    - { src: 10-uplink.network.j2, dest: 10-uplink.network }
+    - { src: 40-bridge.netdev.j2, dest: "40-{{ vlan_bridge_name }}.netdev" }
+    - { src: 41-bridge.network.j2, dest: "41-{{ vlan_bridge_name }}.network" }
+  notify: reload networkd
+
+- name: Create wait-online drop-in directory
+  ansible.builtin.file:
+    path: /etc/systemd/system/systemd-networkd-wait-online.service.d
+    state: directory
+    mode: '0755'
+
+- name: Bound systemd-networkd-wait-online timeout
+  ansible.builtin.template:
+    src: wait-online.conf.j2
+    dest: /etc/systemd/system/systemd-networkd-wait-online.service.d/10-pegasus.conf
+    owner: root
+    group: root
+    mode: '0644'
+  register: network_wait_online_dropin
+
+- name: Reload systemd units
+  ansible.builtin.systemd:
+    daemon_reload: true
+  when: network_wait_online_dropin is changed
+
+- name: Deploy static resolv.conf
+  ansible.builtin.template:
+    src: resolv.conf.j2
+    dest: /etc/resolv.conf
+    owner: root
+    group: root
+    mode: '0644'
+    follow: false
 
 - name: Enable and start systemd-networkd
   ansible.builtin.systemd:
     name: systemd-networkd
-    enabled: yes
-    state: started
-
-- name: Enable and start systemd-resolved (for DNS)
-  ansible.builtin.systemd:
-    name: systemd-resolved
-    enabled: yes
+    enabled: true
     state: started

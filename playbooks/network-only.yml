@@ -22,12 +22,12 @@
           WARNING: About to change network configuration!
 
           This will:
-          - Switch from ifupdown to systemd-networkd
-          - Create bridges br0 (untagged) and br-vlan50 (VLAN 50)
-          - Restart networking
+          - Make systemd-networkd the sole owner (mask NetworkManager, ifupdown lo-only)
+          - {{ primary_interface }} -> {{ vlan_bridge_name }} (DHCP, MAC {{ bridge_mac }})
+          - Reload networkd (bridge MAC change needs the bridge deleted first)
 
           Current IP: {{ ansible_host }}
-          Expected IP after change: Same (DHCP on br0)
+          Expected IP after change: Same (DHCP on {{ vlan_bridge_name }}, pinned MAC)
 
           Press Ctrl+C then 'A' to abort
           Press ENTER to continue

@@ -1,0 +1,6 @@
+# Managed by sea-pegasus-ansible (roles/network). Interfaces are owned by
+# systemd-networkd (/etc/systemd/network/); ifupdown only handles lo.
+source /etc/network/interfaces.d/*
+
+auto lo
+iface lo inet loopback

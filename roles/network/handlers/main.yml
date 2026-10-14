@@ -1,9 +1,5 @@
 ---
-- name: restart networkd
-  ansible.builtin.systemd:
-    name: systemd-networkd
-    state: restarted
-
-- name: reboot system
-  ansible.builtin.reboot:
-    reboot_timeout: 300
+# .netdev changes (e.g. bridge MAC) only apply when the bridge is recreated.
+- name: reload networkd
+  ansible.builtin.command: networkctl reload
+  changed_when: true

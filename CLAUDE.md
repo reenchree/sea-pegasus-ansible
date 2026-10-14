@@ -1,25 +1,37 @@
+> **DECOMMISSIONED 2026-10-14.** The only migrated workload (Minecraft Bedrock
+> "ReenChree Bedrock Server") now runs on the Hercules `minecraft` VM —
+> see sea-hercules-ansible/CLAUDE.md "Minecraft VM". Semaphore project 2 is
+> deleted 2026-10-14 (Semaphore DB preserved in Hercules snapshot `tank/vms@pre-sem-project2-delete-2026-10-14`). The host was powered off on 2026-10-14 after recovery
+> (`vmpool` exported cleanly; `node-2` and `pterodactyl` VMs left defined, shut
+> off). If it is ever revived: it last ran at 192.168.50.100 via `enp5s0`
+> (1GbE); the 2.5GbE port is actually `enp4s0`. The full Pterodactyl staging
+> archive (both nodes' Wings config, panel MariaDB, Bedrock + Paper 1.21.10
+> volumes, Pterodactyl backups) is retained at Hercules
+> `/tank/vms/_migration/pegasus-2026-10-14` (root-only; Paper + Satisfactory
+> data archived, not deployed). This repo is kept for reference only.
+
 # CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
 
-Ansible automation for **pegasus** (192.168.0.253), a Debian 13 (trixie) KVM/libvirt VM host that runs Pterodactyl game servers. Manages the full stack: ZFS RAIDZ1 storage, VLAN networking via systemd-networkd, VM provisioning via cloud-init, and the Pterodactyl Panel + Wings stack inside guest VMs.
+Ansible automation for **pegasus** (192.168.50.100), a Debian 13 (trixie) KVM/libvirt VM host that runs Pterodactyl game servers. Manages the full stack: ZFS RAIDZ1 storage, VLAN networking via systemd-networkd, VM provisioning via cloud-init, and the Pterodactyl Panel + Wings stack inside guest VMs.
 
-**Status note**: Pegasus is currently **powered off** to save electricity when no game servers are in use. The kube-prom-stack scrape configs in `sea-k8s-flux` keep pegasus targets commented out under labels `# pegasus powered off — re-enable when host comes back` (see `infra/kube-prom-stack/helm-release.yaml`). Re-enable the three scrape entries (`bare-metal-node`, `bare-metal-zfs`, `bare-metal-smart`) at the same time as powering pegasus back on. Weekly Semaphore apt-upgrade runs against pegasus also fail in this state with `No route to host` — expected.
+**Status note (2026-10-14, pre-decommission)**: **Historical, superseded by the DECOMMISSIONED banner:** Pegasus was **back on**, re-cabled: the only live link is `enp5s0` on an **access port, VLAN 50** (Family Room Lab 2.5g Switch port 1), DHCP **192.168.50.100** (no longer 192.168.0.253, no VLAN 1 mgmt). Networking was hand-fixed live, then mirrored into `roles/network` (rendered templates diff-clean vs the host). Root cause of past drop-offs: three managers fighting — NetworkManager (auto "Wired connection" profiles), ifupdown/dhcpcd on bridge port `enp4s0` (same MAC as `br0`), and networkd, which also dropped the lease on every carrier flap (one 2026-04-01 flap left the host IP-less for 64 min). Now networkd-only (NM masked, ifupdown lo-only). VMs (`pterodactyl`, `node-2`) were **shut off** and `/vmpool` data was recovered, then exported cleanly. Scrape targets were removed from sea-k8s-flux at decommission (G1).
 
 ## Hardware
 
-- **Host**: pegasus, custom build (no vendor — generic AMD/Intel desktop, MAC `a8:29:48:24:aa:5d` on `enp4s0`)
+- **Host**: pegasus, custom build (no vendor — generic AMD/Intel desktop, two onboard Realtek NICs: `enp4s0` = RTL8125B **2.5GbE** `a8:29:48:24:aa:5d`, `enp5s0` = RTL8168h **1GbE** `a8:a1:59:5f:b6:4a`, both `r8169`; plus an unused ConnectX-4 Lx `enp6s0f0np0`/`enp6s0f1np1`)
 - **OS**: Debian 13 trixie
 - **Storage**: 4x SATA disks (`/dev/sd[a-d]`) in a ZFS RAIDZ1 pool named `vmpool`, mounted at `/vmpool`. Also serves as libvirt's storage pool path. (Earlier README claims "mirror on 2x Samsung EVO 500GB"; the live config in `inventory.yml` is **RAIDZ1 on 4 disks** — README is stale, this CLAUDE.md and the inventory are authoritative.)
-- **Network**: single trunk port on `enp4s0` carrying VLAN 1 (untagged, mgmt) + VLAN 50 (services/VMs)
+- **Network**: `enp5s0` (1GbE) on a VLAN 50 **access** port, sole port of `br-vlan50` (bridge MAC pinned to `a8:a1:59:5f:b6:4a`). The 2.5GbE `enp4s0` is uncabled — to use it, recable and change `primary_interface` (pinned bridge MAC keeps the lease). Never bridge both NICs to the same switch (STP is off → loop).
 - **SSH user**: `pi` (not `localadmin` — pegasus pre-dates the hercules naming switch)
 
-Live hardware specs (CPU/RAM exact model, drive sizes) are not in this repo — they live on the box. To re-confirm after powering pegasus back on:
+Live hardware specs (CPU/RAM exact model, drive sizes) are not in this repo — they live on the box. To re-confirm if ever revived:
 
 ```bash
-ssh -i ~/.ssh/id_ansible pi@192.168.0.253 'lscpu; free -h; lsblk; sudo zpool status'
+ssh -i ~/.ssh/id_ansible pi@192.168.50.100 'lscpu; free -h; lsblk; sudo zpool status'
 ```
 
 ## Repository Structure
@@ -48,7 +60,7 @@ ssh -i ~/.ssh/id_ansible pi@192.168.0.253 'lscpu; free -h; lsblk; sudo zpool sta
 └── roles/                     # Local roles (see "Roles" table)
     ├── prereq/                # Enable contrib/non-free, install base packages
     ├── zfs/                   # Install ZFS via DKMS, create vmpool if missing
-    ├── network/               # systemd-networkd cutover: br0 (untagged) + br-vlan50
+    ├── network/               # systemd-networkd only: uplink -> br-vlan50 (DHCP, pinned MAC)
     ├── libvirt/               # KVM/libvirt + storage pool at /vmpool
     ├── cockpit/               # Cockpit web UI on :9090
     ├── create-vm/             # Download Ubuntu cloud image, gen cloud-init ISO, virt-install
@@ -63,7 +75,7 @@ ssh -i ~/.ssh/id_ansible pi@192.168.0.253 'lscpu; free -h; lsblk; sudo zpool sta
 |---|---|---|
 | `prereq` | local | Enable contrib/non-free repos, install base packages, dist-upgrade |
 | `zfs` | **local** (not the shared `reenchree.common.zfs`) | Install ZFS, DKMS module, create RAIDZ1 pool. Hercules uses the shared role; pegasus predates that and is intentionally kept on the local copy. |
-| `network` | local | systemd-networkd cutover, `br0` + `br-vlan50` bridges, MAC inheritance |
+| `network` | local | networkd as sole owner (masks NetworkManager, ifupdown lo-only), `primary_interface` → `br-vlan50` (DHCP, pinned `bridge_mac`, `IgnoreCarrierLoss`), wait-online timeout 60s, static `/etc/resolv.conf` (systemd-resolved not installed). Bridge MAC changes need the bridge deleted before `networkctl reload`. |
 | `libvirt` | local | qemu-kvm + libvirt-daemon-system + define storage pool at `/vmpool` |
 | `cockpit` | local | Cockpit + cockpit-machines on :9090 |
 | `create-vm` | local | Download Ubuntu cloud image, gen cloud-init ISO, `virt-install` |
@@ -78,12 +90,12 @@ ssh -i ~/.ssh/id_ansible pi@192.168.0.253 'lscpu; free -h; lsblk; sudo zpool sta
 ## Architecture
 
 ```
-pegasus (192.168.0.253) — Debian 13 KVM/libvirt host (SSH: pi@)
+pegasus (192.168.50.100) — Debian 13 KVM/libvirt host (SSH: pi@)
 ├── ZFS RAIDZ1 pool "vmpool" (/dev/sda-d) → /vmpool
 ├── libvirt/KVM hypervisor (storage pool at /vmpool, VM disks under /vmpool/disks)
-├── systemd-networkd
-│   ├── br0          — untagged bridge, host mgmt, DHCP 192.168.0.253 (MAC inherited from enp4s0)
-│   └── br-vlan50    — VLAN 50 bridge, VMs egress at 192.168.50.1
+├── systemd-networkd (sole owner; NetworkManager masked)
+│   └── br-vlan50    — enp5s0 (VLAN 50 access port) bridge; host DHCP 192.168.50.100
+│                      (MAC pinned a8:a1:59:5f:b6:4a) + VM NICs, gw 192.168.50.1
 ├── NUT client → secondary to NUT server 192.168.0.251 (UPS `ups`, user `observer`)
 │                  graceful VM shutdown via /usr/local/bin/vm-host-shutdown on power-fail
 ├── Cockpit web UI :9090
@@ -102,7 +114,7 @@ External access: Traefik in `sea-k8s-flux` fronts the Panel at `https://pterodac
 ## Cross-repo links
 
 - **`../reenchree-ansible-common`** — shared collection providing `node_exporter`, `zfs_exporter`, `smartctl_exporter` roles. `requirements.yml` pins it to tag `v1.8.0`. The collection also has `base`, `zfs`, `sanoid`, `nut_server` roles that pegasus deliberately does **not** use (pegasus keeps its own local `zfs` role and has no sanoid snapshots — VMs are stateless game-server hosts, no precious data to snapshot).
-- **`../sea-k8s-flux`** — `infra/kube-prom-stack/helm-release.yaml` defines the bare-metal scrape jobs; pegasus targets are currently commented out, see "Status note" above. If you add a new exporter port on pegasus, add a matching scrape entry there.
+- **`../sea-k8s-flux`** — `infra/kube-prom-stack/helm-release.yaml` defines the bare-metal scrape jobs; pegasus targets were removed at decommission (G1). If you add a new exporter port on pegasus, add a matching scrape entry there.
 - **`../sea-hercules-ansible`** — sibling repo for the other bare-metal host. Same shared-collection pattern but uses many more shared roles and runs much more on the host directly (NAS, Garage S3, FreePBX VM, Semaphore VM).
 
 ## Common Commands
@@ -257,4 +269,31 @@ curl -H "$H" -X POST https://semaphore.reenchree.dev/api/project/2/templates \
 
 - **All changes go through roles** — never fix things by SSHing in and running one-off commands. The playbooks are the single source of truth for pegasus state.
 - **README.md is stale** in several places (says inventory is gitignored, says ZFS is a 2-disk mirror, lists only the Step 1/2/3 deploy flow). This `CLAUDE.md` is authoritative.
-- Before running anything that touches `network` or reboots the host, remember pegasus is **currently powered off** by design (see Status note at top). Wake-on-LAN / physical-press is required to bring it back; nothing in this repo automates that.
+- Before running anything that touches `network` or reboots the host, remember pegasus has been **powered off** since the 2026-10-14 decommission (see banner). Wake-on-LAN / physical-press is required to bring it back; nothing in this repo automates that.
+
+## Decommission record
+
+Decommissioned 2026-10-14 (see banner). Everything above this section is historical reference.
+
+- **Semaphore project 2** ("Sea Pegasus VM Host") is deleted 2026-10-14 (Semaphore DB preserved in Hercules snapshot `tank/vms@pre-sem-project2-delete-2026-10-14`). A `tank/vms` snapshot on Hercules is taken first; record its name here when done.
+- **`playbooks/network-rollback.yml` is stale and unsafe.** It reverts to ifupdown, which fights systemd-networkd on the current VLAN 50 access-port layout. Do not run it.
+- **Former Semaphore templates (project 2, 14):**
+
+| Template | ID | Playbook |
+|---|---|---|
+| Check System Health | 1 | `playbooks/check-system.yml` |
+| Deploy Node Exporter | 2 | `playbooks/node_exporter.yml` |
+| Deploy Node-2 VM | 3 | `playbooks/node-2.yml` |
+| Deploy Pterodactyl VM | 4 | `playbooks/pterodactyl.yml` |
+| Deploy ZFS Exporter | 5 | `playbooks/zfs_exporter.yml` |
+| Host Provisioning (Full) | 6 | `playbooks/site.yml` |
+| NUT Client Setup | 7 | `playbooks/nut-client.yml` |
+| Network Configuration | 8 | `playbooks/network-only.yml` |
+| Network Rollback | 9 | `playbooks/network-rollback.yml` |
+| Pterodactyl Backup (Daily) | 10 | `playbooks/pterodactyl-backup.yml` |
+| Pterodactyl Update (Panel + Wings) | 11 | `playbooks/pterodactyl-update.yml` |
+| Teardown Pterodactyl VM | 12 | `playbooks/pterodactyl-teardown.yml` |
+| VM Apt Upgrade (Weekly) | 13 | `playbooks/apt-upgrade-vms.yml` |
+| VM Host Apt Upgrade | 14 | `playbooks/apt-upgrade.yml` |
+
+- **Former schedules (3, all inactive):** "Weekly Sunday 4:00 AM" (`0 4 * * 0`, template 13); "Daily 3:00 AM" (`0 3 * * *`, template 10); "Weekly Sunday 4:30 AM" (`30 4 * * 0`, template 14).

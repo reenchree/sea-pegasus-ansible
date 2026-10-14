@@ -1,6 +1,18 @@
+> **DECOMMISSIONED 2026-10-14.** The only migrated workload (Minecraft Bedrock
+> "ReenChree Bedrock Server") now runs on the Hercules `minecraft` VM —
+> see sea-hercules-ansible/CLAUDE.md "Minecraft VM". Semaphore project 2 is
+> deleted 2026-10-14 (Semaphore DB preserved in Hercules snapshot `tank/vms@pre-sem-project2-delete-2026-10-14`). The host was powered off on 2026-10-14 after recovery
+> (`vmpool` exported cleanly; `node-2` and `pterodactyl` VMs left defined, shut
+> off). If it is ever revived: it last ran at 192.168.50.100 via `enp5s0`
+> (1GbE); the 2.5GbE port is actually `enp4s0`. The full Pterodactyl staging
+> archive (both nodes' Wings config, panel MariaDB, Bedrock + Paper 1.21.10
+> volumes, Pterodactyl backups) is retained at Hercules
+> `/tank/vms/_migration/pegasus-2026-10-14` (root-only; Paper + Satisfactory
+> data archived, not deployed). This repo is kept for reference only.
+
 # sea-pegasus-ansible
 
-Ansible for **pegasus** (`192.168.0.253`), a Debian 13 (trixie) KVM/libvirt
+Ansible for **pegasus** (`192.168.50.100`), a Debian 13 (trixie) KVM/libvirt
 host that runs Pterodactyl game-server VMs. Manages ZFS storage, VLAN-50
 `systemd-networkd` bridging, cloud-init VM provisioning, and the Pterodactyl
 Panel + Wings stack inside guest VMs.
@@ -9,19 +21,17 @@ See [CLAUDE.md](CLAUDE.md) for the authoritative, in-depth reference.
 
 ## Status
 
-Pegasus is **powered off since ~2026-05** to save power while no game servers
-are in use. Its Prometheus scrape targets in `sea-k8s-flux` are commented out,
-and the weekly Semaphore apt-upgrade against it fails with `No route to host`
-(expected). Bringing it back requires physical power-on / WoL — nothing here
-automates that.
+Decommissioned 2026-10-14 (see banner). Powered off; Prometheus scrape
+targets removed from sea-k8s-flux. Bringing it back requires physical
+power-on / WoL — nothing here automates that.
 
 ## Host
 
-- **pegasus**, Debian 13 trixie, SSH `pi@192.168.0.253`
+- **pegasus**, Debian 13 trixie, SSH `pi@192.168.50.100`
 - **Storage**: ZFS **RAIDZ1** pool `vmpool` on 4x SATA disks (`/dev/sd[a-d]`),
   mounted at `/vmpool` and used as the libvirt storage pool path.
-- **Network**: single trunk port `enp4s0` carrying VLAN 1 (untagged mgmt) +
-  VLAN 50 (services/VMs), bridged as `br0` + `br-vlan50`.
+- **Network**: `enp5s0` on a VLAN 50 access port, sole port of `br-vlan50`
+  (host DHCP + VMs). See CLAUDE.md.
 
 ## Inventory & secrets
 
